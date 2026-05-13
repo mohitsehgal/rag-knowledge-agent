@@ -1,10 +1,10 @@
 from typing import List, Dict
 from langchain.schema import Document
-from anthropic import Anthropic
+from openai import OpenAI
 
 import config
 
-client = Anthropic(api_key=config.ANTHROPIC_API_KEY)
+client = OpenAI(api_key=config.OPENAI_API_KEY)
 
 
 SYSTEM_PROMPT = """You are a knowledge agent that answers questions using ONLY the provided context from company documents.
@@ -25,7 +25,6 @@ Quality bar:
 
 
 def format_context(chunks: List[Document]) -> str:
-    """Format retrieved chunks as numbered sources for the LLM."""
     parts = []
     for i, chunk in enumerate(chunks, start=1):
         source = chunk.metadata.get("source_file", "unknown")
@@ -42,7 +41,6 @@ def generate_answer(
     chunks: List[Document],
     model: str = config.LLM_MODEL,
 ) -> Dict:
-    """Generate an answer with citations from retrieved chunks."""
     context = format_context(chunks)
 
     user_message = (
@@ -53,14 +51,16 @@ def generate_answer(
         "Answer the question using only the context above. Cite sources inline with [Source N]."
     )
 
-    response = client.messages.create(
+    response = client.chat.completions.create(
         model=model,
         max_tokens=1024,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_message}],
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_message},
+        ],
     )
 
-    answer = response.content[0].text
+    answer = response.choices[0].message.content
 
     citations = [
         {
